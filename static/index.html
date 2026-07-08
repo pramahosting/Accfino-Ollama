@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Ollama tester — AccFino</title>
+<style>
+  :root {
+    --bg: #F7F6F2; --panel: #FFFFFF; --border: #E3E1D9;
+    --text: #1F1E1A; --muted: #6B6A63;
+    --accent: #0F6E56; --accent-hover: #0C5A46;
+    --mono: "SF Mono", "Menlo", "Consolas", monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  .topbar { padding: 14px 24px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between; background: var(--panel); }
+  .topbar h1 { font-size: 15px; font-weight: 600; margin: 0; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    background: #ccc; margin-right: 6px; vertical-align: middle; }
+  .dot.ok { background: #3B9E6E; } .dot.bad { background: #D8503C; }
+
+  .layout { display: grid; grid-template-columns: 320px 1fr; gap: 0; min-height: calc(100vh - 60px); }
+  .sidebar { border-right: 1px solid var(--border); padding: 20px; background: var(--panel); }
+  .main { padding: 20px 28px; }
+
+  .section { margin-bottom: 28px; }
+  .section h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--muted); margin: 0 0 10px; }
+
+  select, input, textarea, button {
+    font-family: inherit; font-size: 13px; padding: 7px 9px;
+    border: 1px solid var(--border); border-radius: 6px; background: #FBFAF7; color: var(--text);
+    width: 100%;
+  }
+  textarea { font-family: var(--mono); }
+  button { cursor: pointer; width: auto; background: #FBFAF7; }
+  button:hover { background: #F0EEE7; }
+  button.primary { background: var(--accent); color: white; border: none; }
+  button.primary:hover { background: var(--accent-hover); }
+  button:disabled { opacity: 0.5; cursor: default; }
+
+  .row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .row > * { flex: 1; }
+  .small { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  .progress-wrap { height: 6px; background: #EFEDE5; border-radius: 3px; overflow: hidden; margin-top: 8px; }
+  .progress-bar { height: 100%; background: var(--accent); width: 0%; transition: width 0.2s; }
+  .pull-status { font-size: 12px; color: var(--muted); margin-top: 6px; font-family: var(--mono); }
+
+  .installed-list { font-size: 12px; }
+  .installed-list .m { display: flex; justify-content: space-between; padding: 6px 0;
+    border-bottom: 1px solid var(--border); }
+  .installed-list .m span.name { font-family: var(--mono); }
+
+  #question { width: 100%; height: 150px; resize: vertical; line-height: 1.5; }
+  #output { white-space: pre-wrap; font-size: 14px; line-height: 1.6; font-family: var(--mono);
+    margin-top: 12px; }
+  #output.placeholder { color: var(--muted); font-family: inherit; }
+  #output.error { color: #B0392A; }
+
+  .used-examples { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border);
+    font-size: 12px; color: var(--muted); }
+  .used-examples code { background: #EFEDE5; padding: 1px 5px; border-radius: 4px; }
+
+  .upload-drop { border: 1px dashed var(--border); border-radius: 8px; padding: 16px; text-align: center; }
+  .example-count { font-size: 24px; font-weight: 500; }
+  .example-count-label { font-size: 12px; color: var(--muted); }
+
+  .note { font-size: 12px; color: var(--muted); background: #F0EEE7; border-radius: 6px; padding: 10px 12px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1><span class="dot" id="healthDot"></span>Ollama tester</h1>
+  <div class="small" id="healthText">checking connection…</div>
+</div>
+
+<div class="layout">
+  <div class="sidebar">
+
+    <div class="section">
+      <h2>Installed models</h2>
+      <div class="installed-list" id="installedList">loading…</div>
+    </div>
+
+    <div class="section">
+      <h2>Pull a new model</h2>
+      <select id="librarySelect"></select>
+      <div class="row" style="margin-top:8px;">
+        <input id="customModel" placeholder="or type a custom model name" />
+        <button id="pullBtn" style="flex:0 0 auto;">Pull</button>
+      </div>
+      <div class="progress-wrap"><div class="progress-bar" id="progressBar"></div></div>
+      <div class="pull-status" id="pullStatus"></div>
+    </div>
+
+    <div class="section">
+      <h2>Training data</h2>
+      <div class="upload-drop">
+        <input type="file" id="fileInput" accept=".csv,.json" />
+        <div class="small">CSV or JSON. Columns: <code>input, output</code><br>
+          (also accepts <code>description/category</code>)</div>
+      </div>
+      <div class="row" style="margin-top:10px;">
+        <div>
+          <div class="example-count" id="exampleCount">0</div>
+          <div class="example-count-label">examples stored</div>
+        </div>
+        <button id="clearExamplesBtn" style="flex:0 0 auto;">Clear all</button>
+      </div>
+      <div class="note" style="margin-top:10px;">
+        This does not retrain the model. Uploaded examples are matched against
+        each question and added as reference context at answer time.
+      </div>
+    </div>
+
+  </div>
+
+  <div class="main">
+    <div class="section">
+      <h2>Ask a question</h2>
+      <div class="row">
+        <label class="small" style="flex:0 0 auto; width:60px;">Model</label>
+        <select id="askModel"></select>
+      </div>
+      <textarea id="question" placeholder="e.g. Classify this bank transaction: EFTPOS PURCHASE - WOOLWORTHS 2145" style="margin-top:10px;">Classify this bank transaction: EFTPOS PURCHASE - WOOLWORTHS 2145</textarea>
+      <div class="row" style="margin-top:10px;">
+        <label style="flex:0 0 auto; display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted);">
+          <input type="checkbox" id="useExamples" checked style="width:auto;" /> use stored examples
+        </label>
+        <button class="primary" id="askBtn" style="flex:0 0 auto;">Ask ↗</button>
+        <span class="small" id="timer"></span>
+      </div>
+      <div id="output" class="placeholder">Response will appear here.</div>
+      <div class="used-examples" id="usedExamples" style="display:none;"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const el = (id) => document.getElementById(id);
+
+async function refreshHealth() {
+  try {
+    const r = await fetch('/api/health');
+    const d = await r.json();
+    el('healthDot').className = 'dot ' + (d.ollama_reachable ? 'ok' : 'bad');
+    el('healthText').textContent = d.ollama_reachable
+      ? 'connected to ' + d.ollama_base_url
+      : 'cannot reach ' + d.ollama_base_url;
+  } catch (e) {
+    el('healthDot').className = 'dot bad';
+    el('healthText').textContent = 'backend unreachable';
+  }
+}
+
+async function refreshInstalled() {
+  const r = await fetch('/api/tags');
+  const d = await r.json();
+  const models = (d.models || []);
+  if (models.length === 0) {
+    el('installedList').innerHTML = '<div class="small">No models pulled yet.</div>';
+    el('askModel').innerHTML = '<option value="">no models installed</option>';
+    return;
+  }
+  el('installedList').innerHTML = models.map(m =>
+    '<div class="m"><span class="name">' + m.name + '</span><span>' +
+    (m.size ? (m.size / 1e9).toFixed(1) + 'GB' : '') + '</span></div>'
+  ).join('');
+  const current = el('askModel').value;
+  el('askModel').innerHTML = models.map(m =>
+    '<option value="' + m.name + '">' + m.name + '</option>'
+  ).join('');
+  if (models.some(m => m.name === current)) el('askModel').value = current;
+}
+
+async function refreshLibrary() {
+  const r = await fetch('/api/library');
+  const list = await r.json();
+  el('librarySelect').innerHTML = list.map(m =>
+    '<option value="' + m.name + '">' + m.name + ' — ' + m.note + '</option>'
+  ).join('');
+}
+
+async function refreshExamples() {
+  const r = await fetch('/api/examples');
+  const d = await r.json();
+  el('exampleCount').textContent = d.count;
+}
+
+el('pullBtn').addEventListener('click', async () => {
+  const model = el('customModel').value.trim() || el('librarySelect').value;
+  if (!model) return;
+  el('pullBtn').disabled = true;
+  el('progressBar').style.width = '0%';
+  el('pullStatus').textContent = 'starting…';
+
+  try {
+    const res = await fetch('/api/pull', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model })
+    });
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop();
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const j = JSON.parse(line);
+        if (j.total && j.completed) {
+          const pct = Math.round((j.completed / j.total) * 100);
+          el('progressBar').style.width = pct + '%';
+          el('pullStatus').textContent = (j.status || '') + ' ' + pct + '%';
+        } else if (j.status) {
+          el('pullStatus').textContent = j.status;
+        }
+        if (j.error) {
+          el('pullStatus').textContent = 'error: ' + j.error;
+        }
+      }
+    }
+    el('pullStatus').textContent = 'done';
+    el('progressBar').style.width = '100%';
+    await refreshInstalled();
+  } catch (e) {
+    el('pullStatus').textContent = 'failed: ' + e.message;
+  } finally {
+    el('pullBtn').disabled = false;
+  }
+});
+
+el('fileInput').addEventListener('change', async () => {
+  const file = el('fileInput').files[0];
+  if (!file) return;
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await fetch('/api/upload', { method: 'POST', body: formData });
+  const d = await res.json();
+  await refreshExamples();
+  el('fileInput').value = '';
+  alert('Added ' + d.added + ' examples (total ' + d.total + ')');
+});
+
+el('clearExamplesBtn').addEventListener('click', async () => {
+  if (!confirm('Clear all stored examples?')) return;
+  await fetch('/api/examples', { method: 'DELETE' });
+  await refreshExamples();
+});
+
+el('askBtn').addEventListener('click', async () => {
+  const question = el('question').value.trim();
+  if (!question) return;
+  const model = el('askModel').value;
+  if (!model) { alert('Pull a model first.'); return; }
+
+  el('askBtn').disabled = true;
+  el('output').className = '';
+  el('output').textContent = 'Waiting for response…';
+  el('usedExamples').style.display = 'none';
+
+  const start = performance.now();
+  const t = setInterval(() => {
+    el('timer').textContent = ((performance.now() - start) / 1000).toFixed(1) + 's';
+  }, 100);
+
+  try {
+    const res = await fetch('/api/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, prompt: question, use_examples: el('useExamples').checked })
+    });
+    const d = await res.json();
+    clearInterval(t);
+    el('timer').textContent = ((performance.now() - start) / 1000).toFixed(1) + 's total';
+
+    if (!res.ok) {
+      el('output').className = 'error';
+      el('output').textContent = JSON.stringify(d);
+      return;
+    }
+    el('output').textContent = d.response || '(empty response)';
+
+    if (d.used_examples && d.used_examples.length) {
+      el('usedExamples').style.display = 'block';
+      el('usedExamples').innerHTML = 'Used ' + d.used_examples.length + ' reference example(s):<br>' +
+        d.used_examples.map(e => '<code>' + e.input + '</code> → <code>' + e.output + '</code>').join('<br>');
+    }
+  } catch (e) {
+    clearInterval(t);
+    el('output').className = 'error';
+    el('output').textContent = 'Request failed: ' + e.message;
+  } finally {
+    el('askBtn').disabled = false;
+  }
+});
+
+refreshHealth();
+refreshInstalled();
+refreshLibrary();
+refreshExamples();
+</script>
+</body>
+</html>

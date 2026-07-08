@@ -5,348 +5,307 @@
 <title>Ollama tester — AccFino</title>
 <style>
   :root {
-    --bg: #F7F6F2;
-    --panel: #FFFFFF;
-    --border: #E3E1D9;
-    --text: #1F1E1A;
-    --muted: #6B6A63;
-    --accent: #0F6E56;
-    --accent-hover: #0C5A46;
+    --bg: #F7F6F2; --panel: #FFFFFF; --border: #E3E1D9;
+    --text: #1F1E1A; --muted: #6B6A63;
+    --accent: #0F6E56; --accent-hover: #0C5A46;
     --mono: "SF Mono", "Menlo", "Consolas", monospace;
   }
   * { box-sizing: border-box; }
-  html, body {
-    margin: 0; padding: 0;
-    background: var(--bg);
-    color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    height: 100%;
-  }
-  .topbar {
-    padding: 14px 24px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: var(--panel);
-  }
-  .topbar h1 {
-    font-size: 15px;
-    font-weight: 600;
-    margin: 0;
-  }
-  .topbar .sub {
-    font-size: 12px;
-    color: var(--muted);
-  }
-  .status-dot {
-    display: inline-block;
-    width: 8px; height: 8px;
-    border-radius: 50%;
-    background: #ccc;
-    margin-right: 6px;
-    vertical-align: middle;
-  }
-  .status-dot.ok { background: #3B9E6E; }
-  .status-dot.bad { background: #D8503C; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  .topbar { padding: 14px 24px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between; background: var(--panel); }
+  .topbar h1 { font-size: 15px; font-weight: 600; margin: 0; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    background: #ccc; margin-right: 6px; vertical-align: middle; }
+  .dot.ok { background: #3B9E6E; } .dot.bad { background: #D8503C; }
 
-  .config-row {
-    display: flex;
-    gap: 10px;
-    padding: 12px 24px;
-    background: var(--panel);
-    border-bottom: 1px solid var(--border);
-    flex-wrap: wrap;
-    align-items: center;
-  }
-  .config-row label {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--muted);
-    display: block;
-    margin-bottom: 4px;
-  }
-  .config-row input {
-    font-family: var(--mono);
-    font-size: 13px;
-    padding: 7px 9px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: #FBFAF7;
-    color: var(--text);
-  }
-  .config-row input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
-  #endpoint { width: 340px; }
-  #model { width: 180px; }
-  .check-btn {
-    padding: 8px 14px;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: #FBFAF7;
-    font-size: 13px;
-    cursor: pointer;
-    margin-top: 15px;
-  }
-  .check-btn:hover { background: #F0EEE7; }
+  .layout { display: grid; grid-template-columns: 320px 1fr; gap: 0; min-height: calc(100vh - 60px); }
+  .sidebar { border-right: 1px solid var(--border); padding: 20px; background: var(--panel); }
+  .main { padding: 20px 28px; }
 
-  .panes {
-    display: flex;
-    height: calc(100vh - 118px);
-  }
-  .pane {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-  }
-  .pane + .pane { border-left: 1px solid var(--border); }
-  .pane-header {
-    padding: 10px 20px;
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--muted);
-    border-bottom: 1px solid var(--border);
-    background: var(--panel);
-  }
-  .pane-body {
-    flex: 1;
-    padding: 20px;
-    overflow-y: auto;
-  }
+  .section { margin-bottom: 28px; }
+  .section h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--muted); margin: 0 0 10px; }
 
-  #question {
+  select, input, textarea, button {
+    font-family: inherit; font-size: 13px; padding: 7px 9px;
+    border: 1px solid var(--border); border-radius: 6px; background: #FBFAF7; color: var(--text);
     width: 100%;
-    height: 160px;
-    resize: vertical;
-    font-family: inherit;
-    font-size: 14px;
-    line-height: 1.5;
-    padding: 12px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--panel);
-    color: var(--text);
   }
-  #question:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea { font-family: var(--mono); }
+  button { cursor: pointer; width: auto; background: #FBFAF7; }
+  button:hover { background: #F0EEE7; }
+  button.primary { background: var(--accent); color: white; border: none; }
+  button.primary:hover { background: var(--accent-hover); }
+  button:disabled { opacity: 0.5; cursor: default; }
 
-  .send-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-top: 14px;
-  }
-  #send {
-    padding: 10px 20px;
-    background: var(--accent);
-    color: white;
-    border: none;
-    border-radius: 6px;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-  }
-  #send:hover { background: var(--accent-hover); }
-  #send:disabled { background: #B9B6AC; cursor: default; }
-  .timer { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+  .row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .row > * { flex: 1; }
+  .small { font-size: 12px; color: var(--muted); margin-top: 4px; }
 
-  .meta-line {
-    font-size: 12px;
-    color: var(--muted);
-    margin-top: 18px;
-    line-height: 1.6;
-  }
-  .meta-line code {
-    background: #EFEDE5;
-    padding: 1px 5px;
-    border-radius: 4px;
-    font-family: var(--mono);
-  }
+  .progress-wrap { height: 6px; background: #EFEDE5; border-radius: 3px; overflow: hidden; margin-top: 8px; }
+  .progress-bar { height: 100%; background: var(--accent); width: 0%; transition: width 0.2s; }
+  .pull-status { font-size: 12px; color: var(--muted); margin-top: 6px; font-family: var(--mono); }
 
-  #output {
-    white-space: pre-wrap;
-    font-size: 14px;
-    line-height: 1.6;
-    font-family: var(--mono);
-  }
+  .installed-list { font-size: 12px; }
+  .installed-list .m { display: flex; justify-content: space-between; padding: 6px 0;
+    border-bottom: 1px solid var(--border); }
+  .installed-list .m span.name { font-family: var(--mono); }
+
+  #question { width: 100%; height: 150px; resize: vertical; line-height: 1.5; }
+  #output { white-space: pre-wrap; font-size: 14px; line-height: 1.6; font-family: var(--mono);
+    margin-top: 12px; }
   #output.placeholder { color: var(--muted); font-family: inherit; }
   #output.error { color: #B0392A; }
 
-  .spinner {
-    display: inline-block;
-    width: 14px; height: 14px;
-    border: 2px solid #D9D6CB;
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
-    vertical-align: middle;
-    margin-right: 8px;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
+  .used-examples { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border);
+    font-size: 12px; color: var(--muted); }
+  .used-examples code { background: #EFEDE5; padding: 1px 5px; border-radius: 4px; }
 
-  .stats {
-    display: flex;
-    gap: 18px;
-    margin-top: 16px;
-    padding-top: 14px;
-    border-top: 1px solid var(--border);
-    font-size: 12px;
-    color: var(--muted);
-    font-family: var(--mono);
-  }
-  .stats b { color: var(--text); }
+  .upload-drop { border: 1px dashed var(--border); border-radius: 8px; padding: 16px; text-align: center; }
+  .example-count { font-size: 24px; font-weight: 500; }
+  .example-count-label { font-size: 12px; color: var(--muted); }
+
+  .note { font-size: 12px; color: var(--muted); background: #F0EEE7; border-radius: 6px; padding: 10px 12px; }
 </style>
 </head>
 <body>
 
 <div class="topbar">
-  <div>
-    <h1><span class="status-dot" id="statusDot"></span>Ollama tester</h1>
-  </div>
-  <div class="sub">AccFino / Northflank</div>
+  <h1><span class="dot" id="healthDot"></span>Ollama tester</h1>
+  <div class="small" id="healthText">checking connection…</div>
 </div>
 
-<div class="config-row">
-  <div>
-    <label for="endpoint">Ollama base URL</label>
-    <input id="endpoint" type="text" value="/ollama-api" />
-  </div>
-  <div>
-    <label for="model">Model</label>
-    <input id="model" type="text" value="0xroyce/Plutus-3B" />
-  </div>
-  <button class="check-btn" id="checkBtn">Check connection</button>
-</div>
+<div class="layout">
+  <div class="sidebar">
 
-<div class="panes">
-  <div class="pane">
-    <div class="pane-header">Question</div>
-    <div class="pane-body">
-      <textarea id="question" placeholder="e.g. Classify this transaction: &quot;EFTPOS PURCHASE - WOOLWORTHS&quot;">Classify this bank transaction into a GL category: "EFTPOS PURCHASE - WOOLWORTHS 2145"</textarea>
-      <div class="send-row">
-        <button id="send">Send ↗</button>
-        <span class="timer" id="timer"></span>
+    <div class="section">
+      <h2>Installed models</h2>
+      <div class="installed-list" id="installedList">loading…</div>
+    </div>
+
+    <div class="section">
+      <h2>Pull a new model</h2>
+      <select id="librarySelect"></select>
+      <div class="row" style="margin-top:8px;">
+        <input id="customModel" placeholder="or type a custom model name" />
+        <button id="pullBtn" style="flex:0 0 auto;">Pull</button>
       </div>
-      <div class="meta-line">
-        Sends a POST to <code>/ollama-api/api/generate</code>, proxied server-side to the private<br>
-        <code>accfino-ollama</code> service. Model must already be pulled (<code>ollama pull &lt;model&gt;</code>) or this will fail.
+      <div class="progress-wrap"><div class="progress-bar" id="progressBar"></div></div>
+      <div class="pull-status" id="pullStatus"></div>
+    </div>
+
+    <div class="section">
+      <h2>Training data</h2>
+      <div class="upload-drop">
+        <input type="file" id="fileInput" accept=".csv,.json" />
+        <div class="small">CSV or JSON. Columns: <code>input, output</code><br>
+          (also accepts <code>description/category</code>)</div>
+      </div>
+      <div class="row" style="margin-top:10px;">
+        <div>
+          <div class="example-count" id="exampleCount">0</div>
+          <div class="example-count-label">examples stored</div>
+        </div>
+        <button id="clearExamplesBtn" style="flex:0 0 auto;">Clear all</button>
+      </div>
+      <div class="note" style="margin-top:10px;">
+        This does not retrain the model. Uploaded examples are matched against
+        each question and added as reference context at answer time.
       </div>
     </div>
+
   </div>
 
-  <div class="pane">
-    <div class="pane-header">Response</div>
-    <div class="pane-body">
+  <div class="main">
+    <div class="section">
+      <h2>Ask a question</h2>
+      <div class="row">
+        <label class="small" style="flex:0 0 auto; width:60px;">Model</label>
+        <select id="askModel"></select>
+      </div>
+      <textarea id="question" placeholder="e.g. Classify this bank transaction: EFTPOS PURCHASE - WOOLWORTHS 2145" style="margin-top:10px;">Classify this bank transaction: EFTPOS PURCHASE - WOOLWORTHS 2145</textarea>
+      <div class="row" style="margin-top:10px;">
+        <label style="flex:0 0 auto; display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted);">
+          <input type="checkbox" id="useExamples" checked style="width:auto;" /> use stored examples
+        </label>
+        <button class="primary" id="askBtn" style="flex:0 0 auto;">Ask ↗</button>
+        <span class="small" id="timer"></span>
+      </div>
       <div id="output" class="placeholder">Response will appear here.</div>
-      <div class="stats" id="stats" style="display:none;"></div>
+      <div class="used-examples" id="usedExamples" style="display:none;"></div>
     </div>
   </div>
 </div>
 
 <script>
-  const endpointInput = document.getElementById('endpoint');
-  const modelInput = document.getElementById('model');
-  const questionEl = document.getElementById('question');
-  const sendBtn = document.getElementById('send');
-  const checkBtn = document.getElementById('checkBtn');
-  const outputEl = document.getElementById('output');
-  const timerEl = document.getElementById('timer');
-  const statsEl = document.getElementById('stats');
-  const statusDot = document.getElementById('statusDot');
+const el = (id) => document.getElementById(id);
 
-  function cleanBase(url) {
-    return url.trim().replace(/\/+$/, '');
+async function refreshHealth() {
+  try {
+    const r = await fetch('/api/health');
+    const d = await r.json();
+    el('healthDot').className = 'dot ' + (d.ollama_reachable ? 'ok' : 'bad');
+    el('healthText').textContent = d.ollama_reachable
+      ? 'connected to ' + d.ollama_base_url
+      : 'cannot reach ' + d.ollama_base_url;
+  } catch (e) {
+    el('healthDot').className = 'dot bad';
+    el('healthText').textContent = 'backend unreachable';
   }
+}
 
-  async function checkConnection() {
-    statusDot.className = 'status-dot';
-    const base = cleanBase(endpointInput.value);
-    try {
-      const res = await fetch(base + '/', { method: 'GET' });
-      const text = await res.text();
-      if (res.ok && text.toLowerCase().includes('ollama is running')) {
-        statusDot.className = 'status-dot ok';
-      } else {
-        statusDot.className = 'status-dot bad';
+async function refreshInstalled() {
+  const r = await fetch('/api/tags');
+  const d = await r.json();
+  const models = (d.models || []);
+  if (models.length === 0) {
+    el('installedList').innerHTML = '<div class="small">No models pulled yet.</div>';
+    el('askModel').innerHTML = '<option value="">no models installed</option>';
+    return;
+  }
+  el('installedList').innerHTML = models.map(m =>
+    '<div class="m"><span class="name">' + m.name + '</span><span>' +
+    (m.size ? (m.size / 1e9).toFixed(1) + 'GB' : '') + '</span></div>'
+  ).join('');
+  const current = el('askModel').value;
+  el('askModel').innerHTML = models.map(m =>
+    '<option value="' + m.name + '">' + m.name + '</option>'
+  ).join('');
+  if (models.some(m => m.name === current)) el('askModel').value = current;
+}
+
+async function refreshLibrary() {
+  const r = await fetch('/api/library');
+  const list = await r.json();
+  el('librarySelect').innerHTML = list.map(m =>
+    '<option value="' + m.name + '">' + m.name + ' — ' + m.note + '</option>'
+  ).join('');
+}
+
+async function refreshExamples() {
+  const r = await fetch('/api/examples');
+  const d = await r.json();
+  el('exampleCount').textContent = d.count;
+}
+
+el('pullBtn').addEventListener('click', async () => {
+  const model = el('customModel').value.trim() || el('librarySelect').value;
+  if (!model) return;
+  el('pullBtn').disabled = true;
+  el('progressBar').style.width = '0%';
+  el('pullStatus').textContent = 'starting…';
+
+  try {
+    const res = await fetch('/api/pull', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model })
+    });
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop();
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const j = JSON.parse(line);
+        if (j.total && j.completed) {
+          const pct = Math.round((j.completed / j.total) * 100);
+          el('progressBar').style.width = pct + '%';
+          el('pullStatus').textContent = (j.status || '') + ' ' + pct + '%';
+        } else if (j.status) {
+          el('pullStatus').textContent = j.status;
+        }
+        if (j.error) {
+          el('pullStatus').textContent = 'error: ' + j.error;
+        }
       }
-    } catch (err) {
-      statusDot.className = 'status-dot bad';
     }
+    el('pullStatus').textContent = 'done';
+    el('progressBar').style.width = '100%';
+    await refreshInstalled();
+  } catch (e) {
+    el('pullStatus').textContent = 'failed: ' + e.message;
+  } finally {
+    el('pullBtn').disabled = false;
   }
+});
 
-  checkBtn.addEventListener('click', checkConnection);
-  window.addEventListener('load', checkConnection);
+el('fileInput').addEventListener('change', async () => {
+  const file = el('fileInput').files[0];
+  if (!file) return;
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await fetch('/api/upload', { method: 'POST', body: formData });
+  const d = await res.json();
+  await refreshExamples();
+  el('fileInput').value = '';
+  alert('Added ' + d.added + ' examples (total ' + d.total + ')');
+});
 
-  async function sendQuestion() {
-    const base = cleanBase(endpointInput.value);
-    const model = modelInput.value.trim();
-    const prompt = questionEl.value.trim();
+el('clearExamplesBtn').addEventListener('click', async () => {
+  if (!confirm('Clear all stored examples?')) return;
+  await fetch('/api/examples', { method: 'DELETE' });
+  await refreshExamples();
+});
 
-    if (!prompt) { return; }
-    if (!model) {
-      outputEl.textContent = 'Enter a model name first.';
-      outputEl.className = 'error';
+el('askBtn').addEventListener('click', async () => {
+  const question = el('question').value.trim();
+  if (!question) return;
+  const model = el('askModel').value;
+  if (!model) { alert('Pull a model first.'); return; }
+
+  el('askBtn').disabled = true;
+  el('output').className = '';
+  el('output').textContent = 'Waiting for response…';
+  el('usedExamples').style.display = 'none';
+
+  const start = performance.now();
+  const t = setInterval(() => {
+    el('timer').textContent = ((performance.now() - start) / 1000).toFixed(1) + 's';
+  }, 100);
+
+  try {
+    const res = await fetch('/api/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, prompt: question, use_examples: el('useExamples').checked })
+    });
+    const d = await res.json();
+    clearInterval(t);
+    el('timer').textContent = ((performance.now() - start) / 1000).toFixed(1) + 's total';
+
+    if (!res.ok) {
+      el('output').className = 'error';
+      el('output').textContent = JSON.stringify(d);
       return;
     }
+    el('output').textContent = d.response || '(empty response)';
 
-    sendBtn.disabled = true;
-    outputEl.className = '';
-    outputEl.innerHTML = '<span class="spinner"></span>Waiting for response…';
-    statsEl.style.display = 'none';
-    const start = performance.now();
-
-    let tickHandle = setInterval(() => {
-      timerEl.textContent = ((performance.now() - start) / 1000).toFixed(1) + 's';
-    }, 100);
-
-    try {
-      const res = await fetch(base + '/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: model, prompt: prompt, stream: false })
-      });
-
-      const elapsed = ((performance.now() - start) / 1000).toFixed(1);
-      clearInterval(tickHandle);
-      timerEl.textContent = elapsed + 's total';
-
-      if (!res.ok) {
-        const errText = await res.text();
-        outputEl.className = 'error';
-        outputEl.textContent = 'HTTP ' + res.status + '\n\n' + errText;
-        return;
-      }
-
-      const data = await res.json();
-      outputEl.className = '';
-      outputEl.textContent = data.response || '(empty response)';
-
-      statsEl.style.display = 'flex';
-      statsEl.innerHTML =
-        '<span>model: <b>' + (data.model || model) + '</b></span>' +
-        '<span>total: <b>' + elapsed + 's</b></span>' +
-        (data.eval_count ? '<span>tokens: <b>' + data.eval_count + '</b></span>' : '');
-
-    } catch (err) {
-      clearInterval(tickHandle);
-      outputEl.className = 'error';
-      outputEl.textContent = 'Request failed: ' + err.message +
-        '\n\nLikely causes:\n' +
-        '- OLLAMA_ORIGINS not set on the server (CORS block)\n' +
-        '- Port set back to private on Northflank\n' +
-        '- Model not pulled yet on the server';
-    } finally {
-      sendBtn.disabled = false;
+    if (d.used_examples && d.used_examples.length) {
+      el('usedExamples').style.display = 'block';
+      el('usedExamples').innerHTML = 'Used ' + d.used_examples.length + ' reference example(s):<br>' +
+        d.used_examples.map(e => '<code>' + e.input + '</code> → <code>' + e.output + '</code>').join('<br>');
     }
+  } catch (e) {
+    clearInterval(t);
+    el('output').className = 'error';
+    el('output').textContent = 'Request failed: ' + e.message;
+  } finally {
+    el('askBtn').disabled = false;
   }
+});
 
-  sendBtn.addEventListener('click', sendQuestion);
-  questionEl.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) sendQuestion();
-  });
+refreshHealth();
+refreshInstalled();
+refreshLibrary();
+refreshExamples();
 </script>
-
 </body>
 </html>

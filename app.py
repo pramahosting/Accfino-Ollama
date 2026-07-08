@@ -12,9 +12,20 @@ from fastapi.staticfiles import StaticFiles
 OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://accfino-ollama:11434")
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/app/data"))
 EXAMPLES_FILE = DATA_DIR / "examples.json"
-DATA_DIR.mkdir(parents=True, exist_ok=True)
-if not EXAMPLES_FILE.exists():
-    EXAMPLES_FILE.write_text("[]")
+
+try:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    if not EXAMPLES_FILE.exists():
+        EXAMPLES_FILE.write_text("[]")
+    STORAGE_OK = True
+    STORAGE_ERROR = None
+except Exception as e:
+    # Don't let a volume/permission problem take the whole app down at
+    # startup -- fall back to in-memory storage and surface the error
+    # in /api/health instead of crashing on import.
+    STORAGE_OK = False
+    STORAGE_ERROR = str(e)
+    _memory_examples = []
 
 # A curated list of common Ollama library models. Ollama has no public API to
 # list its full catalog, so this is maintained by hand. Any model name can
@@ -38,6 +49,8 @@ app = FastAPI()
 
 
 def load_examples():
+    if not STORAGE_OK:
+        return _memory_examples
     try:
         return json.loads(EXAMPLES_FILE.read_text())
     except Exception:
@@ -45,6 +58,10 @@ def load_examples():
 
 
 def save_examples(examples):
+    if not STORAGE_OK:
+        global _memory_examples
+        _memory_examples = examples
+        return
     EXAMPLES_FILE.write_text(json.dumps(examples, indent=2))
 
 
@@ -55,12 +72,15 @@ def score(prompt_words, example_input):
 
 @app.get("/api/health")
 async def health():
+    result = {"storage_ok": STORAGE_OK, "storage_error": STORAGE_ERROR}
     try:
         async with httpx.AsyncClient(timeout=5) as client:
             r = await client.get(OLLAMA_BASE_URL + "/")
-            return {"ollama_reachable": r.status_code == 200, "ollama_base_url": OLLAMA_BASE_URL}
+            result.update({"ollama_reachable": r.status_code == 200, "ollama_base_url": OLLAMA_BASE_URL})
+            return result
     except Exception as e:
-        return JSONResponse({"ollama_reachable": False, "error": str(e), "ollama_base_url": OLLAMA_BASE_URL})
+        result.update({"ollama_reachable": False, "error": str(e), "ollama_base_url": OLLAMA_BASE_URL})
+        return JSONResponse(result)
 
 
 @app.get("/api/tags")
